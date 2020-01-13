@@ -7,7 +7,7 @@ resource "aws_key_pair" "node_group" {
   count = var.enable_node_groups ? 1 : 0
 
   key_name   = "${var.name}-node-group"
-  public_key = file("${var.ssh_key_name}.pub")
+  public_key = file(var.ssh_public_key)
 }
 
 # ================================================================================
@@ -67,7 +67,7 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 # https://docs.aws.amazon.com/eks/latest/userguide/worker.html
 # https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
 # https://www.terraform.io/docs/providers/aws/r/eks_node_group.html
-resource "aws_eks_node_group" "node" {
+resource "aws_eks_node_group" "primary" {
   count = var.enable_node_groups ? 1 : 0
 
   cluster_name    = aws_eks_cluster.cluster.name
@@ -86,7 +86,8 @@ resource "aws_eks_node_group" "node" {
 
   # https://www.terraform.io/docs/providers/aws/r/eks_node_group.html#remote_access-configuration-block
   remote_access {
-    ec2_ssh_key = aws_key_pair.node_group.0.key_name
+    ec2_ssh_key               = aws_key_pair.node_group.0.key_name
+    source_security_group_ids = [ var.bastion_security_group_id ]
   }
 
   tags = merge(var.common_tags, var.region_tag, {
@@ -98,4 +99,15 @@ resource "aws_eks_node_group" "node" {
     aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
+}
+
+# https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html
+# https://www.terraform.io/docs/providers/aws/d/instances.html
+data "aws_instances" "primary" {
+  depends_on = [ aws_eks_node_group.primary ]
+
+  instance_tags = {
+    "eks:cluster-name"   = aws_eks_cluster.cluster.name
+    "eks:nodegroup-name" = aws_eks_node_group.primary.0.node_group_name
+  }
 }
