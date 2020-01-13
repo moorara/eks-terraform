@@ -20,8 +20,6 @@ The [cluster](./modules/cluster) module in this project provides both managed an
 
 ## TO-DO
 
-### Cluster
-
 ## Prerequisites
 
 You need to have the following tools installed:
