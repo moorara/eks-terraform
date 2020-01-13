@@ -7,7 +7,7 @@ resource "aws_key_pair" "bastion" {
   count = var.enable_bastion ? 1 : 0
 
   key_name   = "${var.name}-bastion"
-  public_key = file("${var.bastion_key_name}.pub")
+  public_key = file(var.bastion_public_key)
 }
 
 # ================================================================================
@@ -193,7 +193,7 @@ resource "aws_autoscaling_group" "bastion" {
 }
 
 # ================================================================================
-#  SSH Config
+#  Bastion Instance
 # ================================================================================
 
 # https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html
@@ -204,32 +204,5 @@ data "aws_instance" "bastion" {
   filter {
     name   = "tag:Name"
     values = [ "${var.name}-bastion" ]
-  }
-}
-
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/providers/local/r/file.html
-resource "local_file" "ssh_config" {
-  filename = "${path.root}/${var.bastion_key_name}.config"
-  content = <<-EOT
-  Host bastion
-    HostName ${data.aws_instance.bastion.public_ip}
-    User admin
-    IdentityFile ${var.bastion_key_name}.pem
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-    LogLevel error
-  EOT
-}
-
-# Remove ssh config file
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/provisioners/null_resource.html
-# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
-# https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "cleanup_kubectl" {
-  provisioner "local-exec" {
-    when    = destroy
-    command = "rm -f ${path.root}/${var.bastion_key_name}.config"
   }
 }
