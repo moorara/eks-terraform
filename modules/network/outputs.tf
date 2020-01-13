@@ -30,3 +30,11 @@ output "public_subnets" {
     availability_zone = subnet.availability_zone
   }]
 }
+
+output "bastion" {
+  description = "The bastion hosts information."
+  value = {
+    security_group_id = aws_security_group.bastion.0.id
+    public_ip         = data.aws_instance.bastion.public_ip
+  }
+}

@@ -7,6 +7,7 @@
 *.tfstate.*.backup
 .terraform/
 
-# Key files
+# Misc files
+ssh/
 *.pem
 *.pub

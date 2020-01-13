@@ -1,9 +1,12 @@
 # https://www.terraform.io/docs/configuration/locals.html
 
 locals {
-  name         = "eks-${var.environment}"
-  subdomain    = format("k8s.%s.%s", var.environment, var.domain)
-  ssh_key_name = format("eks-%s-%s", var.environment, var.region)
+  name      = "eks-${var.environment}"
+  subdomain = format("k8s.%s.%s", var.environment, var.domain)
+
+  bastion_key_name = format("ssh/eks-%s-%s-bastion", var.environment, var.region)
+  node_key_name    = format("ssh/eks-%s-%s-node", var.environment, var.region)
+  ssh_config_file  = format("ssh/eks-%s-%s-config", var.environment, var.region)
 
   kubernetes_tags = {
     "kubernetes.io/cluster/${local.name}" = "shared"

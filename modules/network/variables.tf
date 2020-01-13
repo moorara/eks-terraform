@@ -54,9 +54,9 @@ variable "enable_bastion" {
   default     = false
 }
 
-variable "bastion_key_name" {
+variable "bastion_public_key" {
   type        = string
-  description = "The name of SSH key (without extension) for bastion hosts."
+  description = "The path to SSH public key for bastion hosts."
 }
 
 variable "bastion_whitelist" {

@@ -33,15 +33,20 @@ variable "logs_retention_days" {
   default     = 90
 }
 
-variable "ssh_key_name" {
+variable "ssh_public_key" {
   type        = string
-  description = "The name of SSH key (without extension) for connecting to nodes (node groups)."
+  description = "The path to SSH public key for connecting to nodes (node groups)."
 }
 
 variable "ssh_whitelist" {
   type        = list(string)
   description = "A list of trusted CIDR blocks for SSH access (node groups)."
   default     = [ "0.0.0.0/0" ]
+}
+
+variable "bastion_security_group_id" {
+  type        = string
+  description = "The security group id for the bastion hosts."
 }
 
 variable "enable_node_groups" {
@@ -70,6 +75,36 @@ variable "node_group_config" {
       min_node_size     = 1
       desired_node_size = 3
       max_node_size     = 5
+    }
+  }
+}
+
+variable "enable_nodes" {
+  type        = bool
+  description = "Whehter or not to enable nodes (unmanaged nodes)."
+  default     = false
+}
+
+variable "node_config" {
+  description = "A map of objects each having the configurations for one set of nodes."
+
+  type = map(
+    object({
+      instance_type    = string  # The instance type of nodes.
+      volume_size_gb   = number  # The volume size of nodes in GB.
+      min_size         = number  # The minimum number of nodes.
+      desired_capacity = number  # The desired number of nodes.
+      max_size         = number  # The maximum number of nodes.
+    })
+  )
+
+  default = {
+    primary = {
+      instance_type    = "t2.micro"
+      volume_size_gb   = 32
+      min_size         = 1
+      desired_capacity = 3
+      max_size         = 5
     }
   }
 }
