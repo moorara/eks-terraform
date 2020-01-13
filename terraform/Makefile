@@ -7,7 +7,7 @@ owner := $(shell whoami)
 branch := $(shell git rev-parse --abbrev-ref HEAD)
 commit := $(shell git rev-parse --short HEAD)
 
-bastion_key := eks-$(environment)-$(region)-bastion
+bastion_key := eks-$(environment)-$(region)
 
 
 .PHONY: clean
