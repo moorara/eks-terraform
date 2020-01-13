@@ -18,18 +18,18 @@ resource "aws_iam_role" "cluster" {
   })
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-cluster", var.name)
+    Name = format("%s-cluster", var.name)
   })
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy_attachment.html
-resource "aws_iam_role_policy_attachment" "cluster-eks-cluster" {
+resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSClusterPolicy" {
   role       = aws_iam_role.cluster.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy_attachment.html
-resource "aws_iam_role_policy_attachment" "cluster-eks-service" {
+resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSServicePolicy" {
   role       = aws_iam_role.cluster.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
 }
@@ -38,23 +38,27 @@ resource "aws_iam_role_policy_attachment" "cluster-eks-service" {
 #  Security Groups
 # ================================================================================
 
+# https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html
 # https://www.terraform.io/docs/providers/aws/r/security_group.html
 resource "aws_security_group" "cluster" {
   name   = "${var.name}-cluster"
   vpc_id = var.vpc_id
 
-  egress {
-    description = "Allowing outbound cluster access to the internet."
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [ "0.0.0.0/0" ]
-  }
-
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-cluster", var.name)
+    Name = format("%s-cluster", var.name)
   })
 }
+
+# https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
+/* resource "aws_security_group_rule" "cluster_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.cluster.id
+  cidr_blocks       = [ "0.0.0.0/0" ]
+  description       = "Allowing cluster outbound access to the internet."
+} */
 
 # ================================================================================
 #  Cluster
@@ -62,13 +66,13 @@ resource "aws_security_group" "cluster" {
 
 # https://www.terraform.io/docs/providers/aws/r/cloudwatch_log_group.html
 resource "aws_cloudwatch_log_group" "cluster" {
-  count = var.enable_cluster_logs ? 1 : 0
+  count = var.enable_logs ? 1 : 0
 
   name              = "/aws/eks/${var.name}/cluster"
-  retention_in_days = 90
+  retention_in_days = var.logs_retention_days
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-cluster", var.name)
+    Name = format("%s-cluster", var.name)
   })
 }
 
@@ -78,7 +82,7 @@ resource "aws_cloudwatch_log_group" "cluster" {
 resource "aws_eks_cluster" "cluster" {
   name                      = var.name
   role_arn                  = aws_iam_role.cluster.arn
-  enabled_cluster_log_types = var.enable_cluster_logs ? [ "api", "audit" ] : []
+  enabled_cluster_log_types = var.enable_logs ? [ "api", "audit" ] : []
 
   # https://www.terraform.io/docs/providers/aws/r/eks_cluster.html#vpc_config-1
   vpc_config {
@@ -93,12 +97,12 @@ resource "aws_eks_cluster" "cluster" {
   }
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s", var.name)
+    Name = format("%s", var.name)
   })
 
   depends_on = [
     aws_cloudwatch_log_group.cluster,
-    aws_iam_role_policy_attachment.cluster-eks-cluster,
-    aws_iam_role_policy_attachment.cluster-eks-service,
+    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.cluster_AmazonEKSServicePolicy,
   ]
 }
