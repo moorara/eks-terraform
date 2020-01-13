@@ -17,12 +17,6 @@ variable "az_count" {
   default     = 99  # This is a hack to default to all availability zones
 }
 
-variable "enable_vpc_logs" {
-  type        = bool
-  description = "Whether or not to enable VPC flow logs."
-  default     = false
-}
-
 # https://en.wikipedia.org/wiki/Classful_network
 # https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 variable "vpc_cidrs" {
@@ -46,6 +40,29 @@ variable "vpc_cidrs" {
     us-west-1      = "10.24.0.0/16",
     us-west-2      = "10.25.0.0/16"
   }
+}
+
+variable "enable_vpc_logs" {
+  type        = bool
+  description = "Whether or not to enable VPC flow logs."
+  default     = false
+}
+
+variable "enable_bastion" {
+  type        = bool
+  description = "Whether or not to deploy bastion hosts."
+  default     = false
+}
+
+variable "bastion_key_name" {
+  type        = string
+  description = "The name of SSH key (without extension) for bastion hosts."
+}
+
+variable "bastion_whitelist" {
+  type        = list(string)
+  description = "A list of trusted CIDR blocks for incoming traffic."
+  default     = [ "0.0.0.0/0" ]
 }
 
 variable "common_tags" {

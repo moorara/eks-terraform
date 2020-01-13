@@ -32,7 +32,7 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = false
 
   tags = merge(var.common_tags, var.region_tag, var.vpc_tags, {
-    "Name" = var.name
+    Name = var.name
   })
 }
 
@@ -49,7 +49,7 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(var.common_tags, var.region_tag, var.private_subnet_tags, {
-    "Name" = format("%s-private-%d", var.name, 1 + count.index)
+    Name = format("%s-private-%d", var.name, 1 + count.index)
   })
 }
 
@@ -62,7 +62,7 @@ resource "aws_subnet" "public" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(var.common_tags, var.region_tag, var.public_subnet_tags, {
-    "Name" = format("%s-public-%d", var.name, 1 + count.index)
+    Name = format("%s-public-%d", var.name, 1 + count.index)
   })
 }
 
@@ -78,7 +78,7 @@ resource "aws_eip" "nat" {
   vpc = true
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-%d", var.name, 1 + count.index)
+    Name = format("%s-%d", var.name, 1 + count.index)
   })
 }
 
@@ -92,7 +92,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = var.name
+    Name = var.name
   })
 }
 
@@ -105,7 +105,7 @@ resource "aws_nat_gateway" "main" {
   subnet_id     = element(aws_subnet.public.*.id, count.index)
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-%d", var.name, 1 + count.index)
+    Name = format("%s-%d", var.name, 1 + count.index)
   })
 }
 
@@ -126,7 +126,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-private-%d", var.name, 1 + count.index)
+    Name = format("%s-private-%d", var.name, 1 + count.index)
   })
 }
 
@@ -154,7 +154,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-public", var.name)
+    Name = format("%s-public", var.name)
   })
 }
 
@@ -176,7 +176,7 @@ resource "aws_iam_instance_profile" "vpc" {
   count = var.enable_vpc_logs ? 1 : 0
 
   name = "${var.name}-vpc"
-  role = aws_iam_role.vpc[0].name
+  role = aws_iam_role.vpc.0.name
 }
 
 # https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html
@@ -199,7 +199,7 @@ resource "aws_iam_role" "vpc" {
   })
 
   tags = merge(var.common_tags, {
-    "Name" = format("%s-vpc", var.name)
+    Name = format("%s-vpc", var.name)
   })
 }
 
@@ -208,13 +208,13 @@ resource "aws_iam_role_policy" "vpc" {
   count = var.enable_vpc_logs ? 1 : 0
 
   name = "${var.name}-vpc"
-  role = aws_iam_role.vpc[0].id
+  role = aws_iam_role.vpc.0.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Resource = aws_cloudwatch_log_group.vpc[0].arn
+      Resource = aws_cloudwatch_log_group.vpc.0.arn
       Action = [
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
@@ -239,7 +239,7 @@ resource "aws_cloudwatch_log_group" "vpc" {
   retention_in_days = 90
 
   tags = merge(var.common_tags, var.region_tag, {
-    "Name" = format("%s-vpc", var.name)
+    Name = format("%s-vpc", var.name)
   })
 }
 
@@ -248,8 +248,8 @@ resource "aws_cloudwatch_log_group" "vpc" {
 resource "aws_flow_log" "vpc" {
   count = var.enable_vpc_logs ? 1 : 0
 
-  iam_role_arn         = aws_iam_role.vpc[0].arn
-  log_destination      = aws_cloudwatch_log_group.vpc[0].arn
+  iam_role_arn         = aws_iam_role.vpc.0.arn
+  log_destination      = aws_cloudwatch_log_group.vpc.0.arn
   log_destination_type = "cloud-watch-logs"
   traffic_type         = "ALL"
   vpc_id               = aws_vpc.main.id
