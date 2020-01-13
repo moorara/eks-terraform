@@ -60,32 +60,6 @@ resource "aws_security_group" "cluster" {
   description       = "Allowing cluster outbound access to the internet."
 } */
 
-# https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
-/* resource "aws_security_group_rule" "cluster_egress" {
-  count = var.enable_nodes ? 1 : 0
-
-  type                     = "egress"
-  from_port                = 1025
-  to_port                  = 65535
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.cluster.id
-  source_security_group_id = aws_security_group.node.0.id
-  description              = "Allowing cluster outbound access to the nodes."
-}
-
-# https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
-resource "aws_security_group_rule" "cluster_ingress_https" {
-  count = var.enable_nodes ? 1 : 0
-
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.cluster.id
-  source_security_group_id = aws_security_group.node.0.id
-  description              = "Allowing nodes to communicate with the cluster API server."
-} */
-
 # ================================================================================
 #  Cluster
 # ================================================================================
