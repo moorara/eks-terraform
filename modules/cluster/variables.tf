@@ -21,27 +21,56 @@ variable "subnet_ids" {
   description = "The list of public subnet ids."
 }
 
-variable "enable_cluster_logs" {
+variable "enable_logs" {
   type        = bool
   description = "Whether or not to enable cluster control plane logging."
   default     = false
 }
 
+variable "logs_retention_days" {
+  type        = number
+  description = "The number of days to retain the cluster log events."
+  default     = 90
+}
+
+variable "ssh_key_name" {
+  type        = string
+  description = "The name of SSH key (without extension) for connecting to nodes (node groups)."
+}
+
+variable "ssh_whitelist" {
+  type        = list(string)
+  description = "A list of trusted CIDR blocks for SSH access (node groups)."
+  default     = [ "0.0.0.0/0" ]
+}
+
+variable "enable_node_groups" {
+  type        = bool
+  description = "Whehter or not to enable node groups (managed nodes)."
+  default     = true
+}
+
 variable "node_group_config" {
-  type = object({
-    instance_types    = list(string)  # Set of instance types for worker nodes.
-    disk_size_gb      = number        # Disk size of worker nodes in GB.
-    desired_node_size = number        # The desired number of worker nodes.
-    max_node_size     = number        # The maximum number of worker nodes.
-    min_node_size     = number        # The minimum number of worker nodes.
-  })
+  description = "A map of objects each having the configurations for one node group."
+
+  type = map(
+    object({
+      instance_types    = list(string)  # List of instance types for nodes in node groups.
+      disk_size_gb      = number        # Disk size of nodes in node groups in GB.
+      min_node_size     = number        # The minimum number of nodes in node groups.
+      desired_node_size = number        # The desired number of nodes in node groups.
+      max_node_size     = number        # The maximum number of nodes in node groups.
+    })
+  )
 
   default = {
-    instance_types    = [ "t2.micro" ]
-    disk_size_gb      = 32
-    desired_node_size = 2
-    max_node_size     = 3
-    min_node_size     = 1
+    primary = {
+      instance_types    = [ "t2.micro" ]
+      disk_size_gb      = 32
+      min_node_size     = 1
+      desired_node_size = 3
+      max_node_size     = 5
+    }
   }
 }
 

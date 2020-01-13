@@ -1,8 +1,13 @@
 # https://www.terraform.io/docs/configuration/locals.html
 
 locals {
-  name      = "eks-${var.environment}"
-  subdomain = format("k8s.%s.%s", var.environment, var.domain)
+  name         = "eks-${var.environment}"
+  subdomain    = format("k8s.%s.%s", var.environment, var.domain)
+  ssh_key_name = format("eks-%s-%s", var.environment, var.region)
+
+  kubernetes_tags = {
+    "kubernetes.io/cluster/${local.name}" = "shared"
+  }
 
   # A map of common tags that every resource should have
   common_tags = {
