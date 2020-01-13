@@ -33,7 +33,7 @@ module "network" {
   region              = var.region
   az_count            = 3
   enable_bastion      = true
-  bastion_key_name    = local.ssh_key_name
+  bastion_public_key  = "${local.bastion_key_name}.pub"
   common_tags         = local.common_tags
   region_tag          = local.region_tag
   vpc_tags            = local.kubernetes_tags
@@ -44,14 +44,16 @@ module "network" {
 module "cluster" {
   source = "../modules/cluster"
 
-  name               = local.name
-  region             = var.region
-  vpc_id             = module.network.vpc.id
-  subnet_ids         = [ for subnet in module.network.public_subnets: subnet.id ]
-  ssh_key_name       = local.ssh_key_name
-  enable_node_groups = true
-  common_tags        = local.common_tags
-  region_tag         = local.region_tag
+  name                      = local.name
+  region                    = var.region
+  vpc_id                    = module.network.vpc.id
+  subnet_ids                = [ for subnet in module.network.private_subnets: subnet.id ]
+  ssh_public_key            = "${local.node_key_name}.pub"
+  bastion_security_group_id = module.network.bastion.security_group_id
+  enable_node_groups        = true
+  enable_nodes              = false
+  common_tags               = local.common_tags
+  region_tag                = local.region_tag
 }
 
 # ================================================================================
@@ -67,10 +69,8 @@ locals {
 # https://www.terraform.io/docs/provisioners/null_resource.html
 # https://www.terraform.io/docs/provisioners/index.html
 # https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "configure_kubectl" {
-  depends_on = [
-    module.cluster,
-  ]
+resource "null_resource" "kubectl_config" {
+  depends_on = [ module.cluster ]
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -85,7 +85,7 @@ resource "null_resource" "configure_kubectl" {
 # https://www.terraform.io/docs/provisioners/null_resource.html
 # https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
 # https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "cleanup_kubectl" {
+resource "null_resource" "kubectl_cleanup" {
   provisioner "local-exec" {
     when    = destroy
     command = <<-EOT
@@ -93,5 +93,51 @@ resource "null_resource" "cleanup_kubectl" {
       kubectl config unset users.${local.name}
       kubectl config unset contexts.${local.name}
     EOT
+  }
+}
+
+# ================================================================================
+#  SSH Configurations
+# ================================================================================
+
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/providers/local/r/file.html
+resource "local_file" "ssh_config" {
+  depends_on = [
+    module.network,
+    module.cluster,
+  ]
+
+  filename = "${local.ssh_config_file}"
+  content = <<-EOT
+  Host bastion
+    HostName ${module.network.bastion.public_ip}
+    User admin
+    IdentityFile ${local.bastion_key_name}.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel error
+  %{ for ip in module.cluster.node_group_instances.primary.private_ips }
+  Host ${ip}
+    HostName ${ip}
+    User ec2-user
+    IdentityFile ${local.node_key_name}.pem
+    ProxyJump bastion
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel error
+  %{ endfor }
+  EOT
+}
+
+# Remove ssh config file
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/provisioners/null_resource.html
+# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
+# https://www.terraform.io/docs/provisioners/local-exec.html
+resource "null_resource" "ssh_cleanup" {
+  provisioner "local-exec" {
+    when    = destroy
+    command = "rm -f ${local.ssh_config_file}"
   }
 }
