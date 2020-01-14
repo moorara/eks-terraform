@@ -20,6 +20,8 @@ The [cluster](./modules/cluster) module in this project provides both managed an
 
 ## TO-DO
 
+  - [ ] Use [`ignore_tags`](https://www.terraform.io/docs/providers/aws/index.html#ignore_tags) once it is generally available.
+
 ## Prerequisites
 
 You need to have the following tools installed:

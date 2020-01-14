@@ -34,6 +34,13 @@ resource "aws_vpc" "main" {
   tags = merge(var.common_tags, var.region_tag, var.vpc_tags, {
     Name = var.name
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # ================================================================================
@@ -51,6 +58,13 @@ resource "aws_subnet" "private" {
   tags = merge(var.common_tags, var.region_tag, var.private_subnet_tags, {
     Name = format("%s-private-%d", var.name, 1 + count.index)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/subnet.html
@@ -64,6 +78,13 @@ resource "aws_subnet" "public" {
   tags = merge(var.common_tags, var.region_tag, var.public_subnet_tags, {
     Name = format("%s-public-%d", var.name, 1 + count.index)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # ================================================================================
@@ -80,6 +101,13 @@ resource "aws_eip" "nat" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-%d", var.name, 1 + count.index)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # ================================================================================
@@ -94,6 +122,13 @@ resource "aws_internet_gateway" "main" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = var.name
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
@@ -107,6 +142,13 @@ resource "aws_nat_gateway" "main" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-%d", var.name, 1 + count.index)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # ================================================================================
@@ -128,6 +170,13 @@ resource "aws_route_table" "private" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-private-%d", var.name, 1 + count.index)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/route_table_association.html
@@ -156,6 +205,13 @@ resource "aws_route_table" "public" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-public", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/route_table_association.html
@@ -201,6 +257,13 @@ resource "aws_iam_role" "vpc" {
   tags = merge(var.common_tags, {
     Name = format("%s-vpc", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy.html
@@ -241,6 +304,13 @@ resource "aws_cloudwatch_log_group" "vpc" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-vpc", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html

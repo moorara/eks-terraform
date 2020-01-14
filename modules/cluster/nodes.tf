@@ -42,6 +42,13 @@ resource "aws_iam_role" "node" {
   tags = merge(var.common_tags, {
     Name = format("%s-node", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy_attachment.html
@@ -84,6 +91,13 @@ resource "aws_security_group" "node" {
     Name = format("%s-node", var.name)
     "kubernetes.io/cluster/${aws_eks_cluster.cluster.name}" = "owned"
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
@@ -228,7 +242,7 @@ resource "aws_launch_configuration" "primary" {
 resource "aws_autoscaling_group" "primary" {
   count = var.enable_nodes ? 1 : 0
 
-  name                      = "${var.name}-node"
+  name_prefix               = "${var.name}-node-"
   min_size                  = var.node_config.primary.min_size
   desired_capacity          = var.node_config.primary.desired_capacity
   max_size                  = var.node_config.primary.max_size
