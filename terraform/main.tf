@@ -50,7 +50,7 @@ module "cluster" {
   subnet_ids                = [ for subnet in module.network.private_subnets: subnet.id ]
   ssh_public_key            = "${local.node_key_name}.pub"
   bastion_security_group_id = module.network.bastion.security_group_id
-  enable_node_groups        = false
+  enable_node_groups        = true
   enable_nodes              = true
   common_tags               = local.common_tags
   region_tag                = local.region_tag
@@ -61,7 +61,17 @@ module "cluster" {
 # ================================================================================
 
 locals {
-  cluster_arn = replace(module.cluster.arn, "/", "\\/")
+  configmap_file = "aws-auth.yaml"
+  cluster_arn    = replace(module.cluster.arn, "/", "\\/")
+}
+
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/providers/local/r/file.html
+resource "local_file" "aws_auth" {
+  depends_on = [ module.cluster ]
+
+  filename = local.configmap_file
+  content  = module.cluster.aws_auth
 }
 
 # Configure kubectl
@@ -76,6 +86,22 @@ resource "null_resource" "kubectl_config" {
     command = <<-EOT
       aws eks update-kubeconfig --region ${var.region} --name ${local.name}
       sed -i '' "s/${local.cluster_arn}/${local.name}/g" ~/.kube/config
+    EOT
+  }
+}
+
+# Configure kubectl
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/provisioners/null_resource.html
+# https://www.terraform.io/docs/provisioners/index.html
+# https://www.terraform.io/docs/provisioners/local-exec.html
+resource "null_resource" "kubectl_apply" {
+  depends_on = [ null_resource.kubectl_config ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      kubectl apply -f ${local.configmap_file}
+      rm -f ${local.configmap_file}
     EOT
   }
 }
@@ -111,7 +137,7 @@ locals {
 resource "local_file" "ssh_config" {
   depends_on = [ module.network ]
 
-  filename = "${local.ssh_config_file}"
+  filename = local.ssh_config_file
   content = <<-EOT
   Host bastion
     HostName ${module.network.bastion.public_ip}

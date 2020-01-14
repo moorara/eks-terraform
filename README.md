@@ -60,13 +60,24 @@ make plan
 make apply
 ```
 
+## Connecting To Cluster
+
+A `kubectl` context will be automatically created after deploying the cluster.
+Also, an SSH config file in `ssh` directory will be created which you can use it for accessing the nodes.
+You should use the _private ip_ of a node as follows:
+
+```
+ssh -F ./ssh/<name>-config <private_ip>
+```
+
+This will create an SSH session for a node through the _bastion_ host.
+
 ## Tear Down
 
 You can run the following commands to tear down your deployment and clean up the resources:
 
 ```
-make destroy
-make clean
+make destroy clean
 ```
 
 ## References
@@ -77,6 +88,7 @@ make clean
     - [Unmanaged Nodes](https://docs.aws.amazon.com/eks/latest/userguide/launch-workers.html)
   - [Security Group Considerations](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html)
   - [Worker Node IAM Role](https://docs.aws.amazon.com/eks/latest/userguide/worker_node_IAM_role.html)
+  - [IAM Roles For Cluster](https://docs.aws.amazon.com/eks/latest/userguide/add-user-role.html)
 
 
 [workflow-url]: https://github.com/moorara/eks-terraform/actions

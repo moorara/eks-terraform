@@ -56,3 +56,21 @@ output "kubeconfig" {
             - ${var.name}
   EOT
 }
+
+output "aws_auth" {
+  description = "The aws-auth ConfigMap for nodes to join the cluster."
+  value = var.enable_nodes == false ? "" : <<-EOT
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: aws-auth
+    namespace: kube-system
+  data:
+    mapRoles: |
+      - rolearn: ${aws_iam_role.node.0.arn}
+        username: system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+  EOT
+}
