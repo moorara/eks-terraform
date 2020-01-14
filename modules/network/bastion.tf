@@ -159,7 +159,7 @@ resource "aws_launch_configuration" "bastion" {
 
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
   lifecycle {
-    create_before_destroy = true
+    create_before_destroy = false  # since the name of launch configuration is unique
   }
 }
 

@@ -100,14 +100,3 @@ resource "aws_eks_node_group" "primary" {
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
 }
-
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html
-# https://www.terraform.io/docs/providers/aws/d/instances.html
-data "aws_instances" "primary" {
-  depends_on = [ aws_eks_node_group.primary ]
-
-  instance_tags = {
-    "eks:cluster-name"   = aws_eks_cluster.cluster.name
-    "eks:nodegroup-name" = aws_eks_node_group.primary.0.node_group_name
-  }
-}

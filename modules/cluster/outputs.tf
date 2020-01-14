@@ -20,18 +20,8 @@ output "endpoint" {
   description = "The endpoint for API server of the Kubernetes cluster."
 }
 
-output "node_group_instances" {
-  description = "The information about instances managed by node groups."
-  value = {
-    primary = {
-      private_ips = data.aws_instances.primary.private_ips
-      public_ips  = data.aws_instances.primary.public_ips
-    }
-  }
-}
-
 output "certificate_authority" {
-  value       = aws_eks_cluster.cluster.certificate_authority.0.data
+  value       = aws_eks_cluster.cluster.certificate_authority[0].data
   description = "The certificate authority data for the Kubernetes cluster (base64-encoded)."
 }
 
@@ -50,7 +40,7 @@ output "kubeconfig" {
     - name: ${var.name}-cluster
       cluster:
         server: ${aws_eks_cluster.cluster.endpoint}
-        certificate-authority-data: ${aws_eks_cluster.cluster.certificate_authority.0.data}
+        certificate-authority-data: ${aws_eks_cluster.cluster.certificate_authority[0].data}
   users:
     - name: ${var.name}-user
       user:

@@ -50,8 +50,8 @@ module "cluster" {
   subnet_ids                = [ for subnet in module.network.private_subnets: subnet.id ]
   ssh_public_key            = "${local.node_key_name}.pub"
   bastion_security_group_id = module.network.bastion.security_group_id
-  enable_node_groups        = true
-  enable_nodes              = false
+  enable_node_groups        = false
+  enable_nodes              = true
   common_tags               = local.common_tags
   region_tag                = local.region_tag
 }
@@ -100,13 +100,16 @@ resource "null_resource" "kubectl_cleanup" {
 #  SSH Configurations
 # ================================================================================
 
+locals {
+  private_subnet_wildcards = join(" ", [
+    for subnet in module.network.private_subnets: replace(subnet.cidr, "0/24", "*")
+  ])
+}
+
 # https://www.terraform.io/docs/configuration/expressions.html#string-literals
 # https://www.terraform.io/docs/providers/local/r/file.html
 resource "local_file" "ssh_config" {
-  depends_on = [
-    module.network,
-    module.cluster,
-  ]
+  depends_on = [ module.network ]
 
   filename = "${local.ssh_config_file}"
   content = <<-EOT
@@ -117,16 +120,13 @@ resource "local_file" "ssh_config" {
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel error
-  %{ for ip in module.cluster.node_group_instances.primary.private_ips }
-  Host ${ip}
-    HostName ${ip}
+  Host ${local.private_subnet_wildcards}
     User ec2-user
     IdentityFile ${local.node_key_name}.pem
     ProxyJump bastion
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel error
-  %{ endfor }
   EOT
 }
 
