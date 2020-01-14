@@ -289,3 +289,27 @@ resource "aws_autoscaling_group" "primary" {
     create_before_destroy = true
   }
 }
+
+# ================================================================================
+#  Kubernetes Resources
+# ================================================================================
+
+# https://www.terraform.io/docs/providers/kubernetes/r/config_map.html
+resource "kubernetes_config_map" "aws_auth" {
+  count = var.enable_nodes ? 1 : 0
+
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = <<-EOT
+      - rolearn: ${aws_iam_role.node.0.arn}
+        username: system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+    EOT
+  }
+}

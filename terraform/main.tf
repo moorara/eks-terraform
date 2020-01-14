@@ -16,7 +16,8 @@ terraform {
 # https://www.terraform.io/docs/configuration/terraform.html
 provider "aws" {
   # Equivalent to ">= 2.44.0, < 3.0.0"
-  version    = "~> 2.44"
+  version = "~> 2.44"
+
   access_key = var.access_key
   secret_key = var.secret_key
   region     = var.region
@@ -50,76 +51,10 @@ module "cluster" {
   subnet_ids                = [ for subnet in module.network.private_subnets: subnet.id ]
   ssh_public_key            = "${local.node_key_name}.pub"
   bastion_security_group_id = module.network.bastion.security_group_id
-  enable_node_groups        = true
+  enable_node_groups        = false
   enable_nodes              = true
   common_tags               = local.common_tags
   region_tag                = local.region_tag
-}
-
-# ================================================================================
-#  Configuring kubectl
-# ================================================================================
-
-locals {
-  configmap_file = "aws-auth.yaml"
-  cluster_arn    = replace(module.cluster.arn, "/", "\\/")
-}
-
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/providers/local/r/file.html
-resource "local_file" "aws_auth" {
-  depends_on = [ module.cluster ]
-
-  filename = local.configmap_file
-  content  = module.cluster.aws_auth
-}
-
-# Configure kubectl
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/provisioners/null_resource.html
-# https://www.terraform.io/docs/provisioners/index.html
-# https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "kubectl_config" {
-  depends_on = [ module.cluster ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws eks update-kubeconfig --region ${var.region} --name ${local.name}
-      sed -i '' "s/${local.cluster_arn}/${local.name}/g" ~/.kube/config
-    EOT
-  }
-}
-
-# Configure kubectl
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/provisioners/null_resource.html
-# https://www.terraform.io/docs/provisioners/index.html
-# https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "kubectl_apply" {
-  depends_on = [ null_resource.kubectl_config ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      kubectl apply -f ${local.configmap_file}
-      rm -f ${local.configmap_file}
-    EOT
-  }
-}
-
-# Clean up kubectl configurations
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/provisioners/null_resource.html
-# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
-# https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "kubectl_cleanup" {
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      kubectl config unset clusters.${local.name}
-      kubectl config unset users.${local.name}
-      kubectl config unset contexts.${local.name}
-    EOT
-  }
 }
 
 # ================================================================================
@@ -135,8 +70,6 @@ locals {
 # https://www.terraform.io/docs/configuration/expressions.html#string-literals
 # https://www.terraform.io/docs/providers/local/r/file.html
 resource "local_file" "ssh_config" {
-  depends_on = [ module.network ]
-
   filename = local.ssh_config_file
   content = <<-EOT
   Host bastion
@@ -165,5 +98,44 @@ resource "null_resource" "ssh_cleanup" {
   provisioner "local-exec" {
     when    = destroy
     command = "rm -f ${local.ssh_config_file}"
+  }
+}
+
+# ================================================================================
+#  Configuring kubectl
+# ================================================================================
+
+locals {
+  cluster_arn = replace(module.cluster.arn, "/", "\\/")
+}
+
+# Configure kubectl
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/provisioners/null_resource.html
+# https://www.terraform.io/docs/provisioners/index.html
+# https://www.terraform.io/docs/provisioners/local-exec.html
+resource "null_resource" "kubectl_config" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --region ${var.region} --name ${module.cluster.name}
+      sed -i '' "s/${local.cluster_arn}/${module.cluster.name}/g" ~/.kube/config
+      kubectl config use-context ${module.cluster.name}
+    EOT
+  }
+}
+
+# Clean up kubectl configurations
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/provisioners/null_resource.html
+# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
+# https://www.terraform.io/docs/provisioners/local-exec.html
+resource "null_resource" "kubectl_cleanup" {
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      kubectl config unset clusters.${module.cluster.name}
+      kubectl config unset users.${module.cluster.name}
+      kubectl config unset contexts.${module.cluster.name}
+    EOT
   }
 }

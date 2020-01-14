@@ -11,4 +11,3 @@
 ssh/
 *.pem
 *.pub
-aws-auth.yaml

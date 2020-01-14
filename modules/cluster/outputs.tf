@@ -1,5 +1,10 @@
 # https://www.terraform.io/docs/configuration/outputs.html
 
+output "name" {
+  value       = aws_eks_cluster.cluster.id
+  description = "The name of EKS cluster."
+}
+
 output "arn" {
   value       = aws_eks_cluster.cluster.arn
   description = "The Amazon Resource Name (ARN) of the cluster."
