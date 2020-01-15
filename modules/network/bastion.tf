@@ -137,7 +137,7 @@ resource "aws_security_group" "bastion" {
 }
 
 # ================================================================================
-#  Launch Configurations
+#  Launch Templates
 # ================================================================================
 
 # https://www.terraform.io/docs/providers/aws/d/ami.html
@@ -156,21 +156,48 @@ data "aws_ami" "debian" {
   }
 }
 
-# https://www.terraform.io/docs/providers/aws/r/launch_configuration.html
-resource "aws_launch_configuration" "bastion" {
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html
+# https://www.terraform.io/docs/providers/aws/r/launch_template.html
+resource "aws_launch_template" "bastion" {
   count = var.enable_bastion ? 1 : 0
 
-  name                        = "${var.name}-bastion"
-  image_id                    = data.aws_ami.debian.id
-  instance_type               = "t2.micro"
-  iam_instance_profile        = aws_iam_instance_profile.bastion.0.id
-  security_groups             = [ aws_security_group.bastion.0.id ]
-  key_name                    = aws_key_pair.bastion.0.key_name
-  associate_public_ip_address = true
+  name                                 = "${var.name}-bastion"
+  image_id                             = data.aws_ami.debian.id
+  instance_type                        = "t2.micro"
+  key_name                             = aws_key_pair.bastion.0.key_name
+  instance_initiated_shutdown_behavior = "terminate"
 
-  # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#instance-profile
+  iam_instance_profile {
+    name = aws_iam_instance_profile.bastion.0.name
+  }
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#network-interfaces
+  network_interfaces {
+    associate_public_ip_address = true
+    delete_on_termination       = true
+    security_groups             = [ aws_security_group.bastion.0.id ]
+  }
+
+  tags = merge(var.common_tags, var.region_tag, {
+    Name = format("%s-bastion", var.name)
+  })
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#tag-specifications
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(var.common_tags, var.region_tag, {
+      Name = format("%s-bastion", var.name)
+    })
+  }
+
   lifecycle {
-    create_before_destroy = false  # the name of launch configuration is unique
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+      tag_specifications.0.tags["UUID"],
+    ]
   }
 }
 
@@ -178,6 +205,7 @@ resource "aws_launch_configuration" "bastion" {
 #  Auto Scaling Groups
 # ================================================================================
 
+# https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-launch-template.html
 # https://www.terraform.io/docs/providers/aws/r/autoscaling_group.html
 resource "aws_autoscaling_group" "bastion" {
   count = var.enable_bastion ? 1 : 0
@@ -186,20 +214,12 @@ resource "aws_autoscaling_group" "bastion" {
   min_size             = 1
   desired_capacity     = 1
   max_size             = 1
-  launch_configuration = aws_launch_configuration.bastion.0.name
   vpc_zone_identifier  = slice(aws_subnet.public.*.id, 0, local.az_len)
 
-  tags = [
-    for k, v in merge(var.common_tags, var.region_tag, { Name = "${var.name}-bastion" }): {
-      key                 = k
-      value               = v
-      propagate_at_launch = true
-    }
-  ]
-
-  # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
-  lifecycle {
-    create_before_destroy = false  # the name of autoscaling group is unique
+  # https://www.terraform.io/docs/providers/aws/r/autoscaling_group.html#launch_template-1
+  launch_template {
+    id      = aws_launch_template.bastion.0.id
+    version = aws_launch_template.bastion.0.latest_version
   }
 }
 
