@@ -179,7 +179,7 @@ resource "aws_security_group_rule" "node_egress_internet" {
 }
 
 # ================================================================================
-#  Launch Configurations
+#  Launch Templates
 # ================================================================================
 
 # https://www.terraform.io/docs/providers/aws/d/ami.html
@@ -207,30 +207,71 @@ data "template_file" "node_init" {
   }
 }
 
-# https://www.terraform.io/docs/providers/aws/r/launch_configuration.html
-resource "aws_launch_configuration" "primary" {
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html
+# https://www.terraform.io/docs/providers/aws/r/launch_template.html
+resource "aws_launch_template" "primary" {
   count = var.enable_nodes ? 1 : 0
 
-  name_prefix                 = "${var.name}-node-"
-  image_id                    = data.aws_ami.node.0.id
-  instance_type               = var.node_config.primary.instance_type
-  iam_instance_profile        = aws_iam_instance_profile.node.0.name
-  security_groups             = [ aws_security_group.node.0.id ]
-  key_name                    = aws_key_pair.node.0.key_name
-  associate_public_ip_address = false
-  user_data_base64            = base64encode(data.template_file.node_init.0.rendered)
-  enable_monitoring           = true
+  name_prefix            = "${var.name}-node-"
+  image_id               = data.aws_ami.node.0.id
+  instance_type          = var.node_config.primary.instance_type
+  key_name               = aws_key_pair.node.0.key_name
+  user_data              = base64encode(data.template_file.node_init.0.rendered)
 
-  # https://www.terraform.io/docs/providers/aws/r/launch_configuration.html#block-devices
-  root_block_device {
-    volume_type           = "gp2"
-    volume_size           = var.node_config.primary.volume_size_gb
-    delete_on_termination = true
+  # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#block-devices
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_type           = "gp2"
+      volume_size           = var.node_config.primary.volume_size_gb
+      delete_on_termination = true
+    }
+  }
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#instance-profile
+  iam_instance_profile {
+    name = aws_iam_instance_profile.node.0.name
+  }
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#network-interfaces
+  network_interfaces {
+    associate_public_ip_address = false
+    delete_on_termination       = true
+    security_groups             = [ aws_security_group.node.0.id ]
+  }
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#monitoring-1
+  monitoring {
+    enabled = true
+  }
+
+  tags = merge(var.common_tags, {
+    Name = format("%s-node", var.name)
+  })
+
+  # https://www.terraform.io/docs/providers/aws/r/launch_template.html#tag-specifications
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = merge(var.common_tags, var.region_tag, {
+      Name = format("%s-node", var.name)
+
+      "kubernetes.io/cluster/${aws_eks_cluster.cluster.name}"     = "owned"
+      "k8s.io/cluster-autoscaler/${aws_eks_cluster.cluster.name}" = "owned"
+      "k8s.io/cluster-autoscaler/enabled"                         = "true"
+    })
   }
 
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
   lifecycle {
     create_before_destroy = true
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+      tag_specifications.0.tags["UUID"],
+    ]
   }
 }
 
@@ -238,6 +279,7 @@ resource "aws_launch_configuration" "primary" {
 #  Auto Scaling Group
 # ================================================================================
 
+# https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-launch-template.html
 # https://www.terraform.io/docs/providers/aws/r/autoscaling_group.html
 resource "aws_autoscaling_group" "primary" {
   count = var.enable_nodes ? 1 : 0
@@ -247,41 +289,12 @@ resource "aws_autoscaling_group" "primary" {
   desired_capacity          = var.node_config.primary.desired_capacity
   max_size                  = var.node_config.primary.max_size
   vpc_zone_identifier       = var.subnet_ids
-  launch_configuration      = aws_launch_configuration.primary.0.id
   health_check_grace_period = 15
 
-  tag {
-    key                 = "Name"
-    value               = "${var.name}-node"
-    propagate_at_launch = true
-  }
-
-  dynamic "tag" {
-    for_each = merge(var.common_tags, var.region_tag)
-
-    content {
-      key                 = tag.key
-      value               = tag.value
-      propagate_at_launch = true
-    }
-  }
-
-  tag {
-    key                 = "kubernetes.io/cluster/${aws_eks_cluster.cluster.name}"
-    value               = "owned"
-    propagate_at_launch = true
-  }
-
-  tag {
-    key                 = "k8s.io/cluster-autoscaler/${aws_eks_cluster.cluster.name}"
-    value               = "owned"
-    propagate_at_launch = true
-  }
-
-  tag {
-    key                 = "k8s.io/cluster-autoscaler/enabled"
-    value               = "true"
-    propagate_at_launch = true
+  # https://www.terraform.io/docs/providers/aws/r/autoscaling_group.html#launch_template-1
+  launch_template {
+    id      = aws_launch_template.primary.0.id
+    version = aws_launch_template.primary.0.latest_version
   }
 
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
@@ -296,7 +309,8 @@ resource "aws_autoscaling_group" "primary" {
 
 # https://www.terraform.io/docs/providers/kubernetes/r/config_map.html
 resource "kubernetes_config_map" "aws_auth" {
-  count = var.enable_nodes ? 1 : 0
+  # If node groups are also enabled, the aws-auth ConfigMap will be automatically created.
+  count = !var.enable_node_groups && var.enable_nodes ? 1 : 0
 
   metadata {
     name      = "aws-auth"
