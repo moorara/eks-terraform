@@ -34,6 +34,13 @@ resource "aws_iam_role" "node_group" {
   tags = merge(var.common_tags, {
     Name = format("%s-node-group", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy_attachment.html
@@ -70,6 +77,12 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 resource "aws_eks_node_group" "primary" {
   count = var.enable_node_groups ? 1 : 0
 
+  depends_on = [
+    aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
+  ]
+
   cluster_name    = aws_eks_cluster.cluster.name
   node_group_name = var.name
   node_role_arn   = aws_iam_role.node_group.0.arn
@@ -94,20 +107,10 @@ resource "aws_eks_node_group" "primary" {
     Name = format("%s-node-group", var.name)
   })
 
-  depends_on = [
-    aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
-  ]
-}
-
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html
-# https://www.terraform.io/docs/providers/aws/d/instances.html
-data "aws_instances" "primary" {
-  depends_on = [ aws_eks_node_group.primary ]
-
-  instance_tags = {
-    "eks:cluster-name"   = aws_eks_cluster.cluster.name
-    "eks:nodegroup-name" = aws_eks_node_group.primary.0.node_group_name
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
   }
 }

@@ -1,5 +1,10 @@
 # https://www.terraform.io/docs/configuration/outputs.html
 
+output "name" {
+  value       = aws_eks_cluster.cluster.id
+  description = "The name of EKS cluster."
+}
+
 output "arn" {
   value       = aws_eks_cluster.cluster.arn
   description = "The Amazon Resource Name (ARN) of the cluster."
@@ -20,18 +25,8 @@ output "endpoint" {
   description = "The endpoint for API server of the Kubernetes cluster."
 }
 
-output "node_group_instances" {
-  description = "The information about instances managed by node groups."
-  value = {
-    primary = {
-      private_ips = data.aws_instances.primary.private_ips
-      public_ips  = data.aws_instances.primary.public_ips
-    }
-  }
-}
-
 output "certificate_authority" {
-  value       = aws_eks_cluster.cluster.certificate_authority.0.data
+  value       = aws_eks_cluster.cluster.certificate_authority[0].data
   description = "The certificate authority data for the Kubernetes cluster (base64-encoded)."
 }
 
@@ -50,7 +45,7 @@ output "kubeconfig" {
     - name: ${var.name}-cluster
       cluster:
         server: ${aws_eks_cluster.cluster.endpoint}
-        certificate-authority-data: ${aws_eks_cluster.cluster.certificate_authority.0.data}
+        certificate-authority-data: ${aws_eks_cluster.cluster.certificate_authority[0].data}
   users:
     - name: ${var.name}-user
       user:
@@ -64,5 +59,23 @@ output "kubeconfig" {
             - ${var.region}
             - --cluster-name
             - ${var.name}
+  EOT
+}
+
+output "aws_auth" {
+  description = "The aws-auth ConfigMap for nodes to join the cluster."
+  value = var.enable_nodes == false ? "" : <<-EOT
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: aws-auth
+    namespace: kube-system
+  data:
+    mapRoles: |
+      - rolearn: ${aws_iam_role.node.0.arn}
+        username: system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
   EOT
 }

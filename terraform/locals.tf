@@ -14,6 +14,7 @@ locals {
 
   # A map of common tags that every resource should have
   common_tags = {
+    Cluster     = local.name
     Environment = var.environment
     UUID        = var.uuid
     Owner       = var.owner

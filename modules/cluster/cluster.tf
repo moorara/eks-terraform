@@ -20,6 +20,13 @@ resource "aws_iam_role" "cluster" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-cluster", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy_attachment.html
@@ -47,6 +54,39 @@ resource "aws_security_group" "cluster" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-cluster", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
+}
+
+# https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
+resource "aws_security_group_rule" "cluster_ingress_https" {
+  count = var.enable_nodes ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.node.0.id
+  description              = "Allowing nodes to communicate with the cluster API server."
+}
+
+# https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
+resource "aws_security_group_rule" "cluster_egress" {
+  count = var.enable_nodes ? 1 : 0
+
+  type                     = "egress"
+  from_port                = 1025
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.node.0.id
+  description              = "Allowing cluster outbound access to the nodes."
 }
 
 # https://www.terraform.io/docs/providers/aws/r/security_group_rule.html
@@ -74,12 +114,25 @@ resource "aws_cloudwatch_log_group" "cluster" {
   tags = merge(var.common_tags, var.region_tag, {
     Name = format("%s-cluster", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html
 # https://docs.aws.amazon.com/eks/latest/userguide/clusters.html
 # https://www.terraform.io/docs/providers/aws/r/eks_cluster.html
 resource "aws_eks_cluster" "cluster" {
+  depends_on = [
+    aws_cloudwatch_log_group.cluster,
+    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.cluster_AmazonEKSServicePolicy,
+  ]
+
   name                      = var.name
   role_arn                  = aws_iam_role.cluster.arn
   enabled_cluster_log_types = var.enable_logs ? [ "api", "audit" ] : []
@@ -100,9 +153,10 @@ resource "aws_eks_cluster" "cluster" {
     Name = format("%s", var.name)
   })
 
-  depends_on = [
-    aws_cloudwatch_log_group.cluster,
-    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
-    aws_iam_role_policy_attachment.cluster_AmazonEKSServicePolicy,
-  ]
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }

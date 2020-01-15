@@ -16,7 +16,8 @@ terraform {
 # https://www.terraform.io/docs/configuration/terraform.html
 provider "aws" {
   # Equivalent to ">= 2.44.0, < 3.0.0"
-  version    = "~> 2.44"
+  version = "~> 2.44"
+
   access_key = var.access_key
   secret_key = var.secret_key
   region     = var.region
@@ -57,6 +58,50 @@ module "cluster" {
 }
 
 # ================================================================================
+#  SSH Configurations
+# ================================================================================
+
+locals {
+  private_subnet_wildcards = join(" ", [
+    for subnet in module.network.private_subnets: replace(subnet.cidr, "0/24", "*")
+  ])
+}
+
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/providers/local/r/file.html
+resource "local_file" "ssh_config" {
+  filename = local.ssh_config_file
+  content = <<-EOT
+  Host bastion
+    HostName ${module.network.bastion.public_ip}
+    User admin
+    IdentityFile ${local.bastion_key_name}.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel error
+  Host ${local.private_subnet_wildcards}
+    User ec2-user
+    IdentityFile ${local.node_key_name}.pem
+    ProxyJump bastion
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel error
+  EOT
+}
+
+# Remove ssh config file
+# https://www.terraform.io/docs/configuration/expressions.html#string-literals
+# https://www.terraform.io/docs/provisioners/null_resource.html
+# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
+# https://www.terraform.io/docs/provisioners/local-exec.html
+resource "null_resource" "ssh_cleanup" {
+  provisioner "local-exec" {
+    when    = destroy
+    command = "rm -f ${local.ssh_config_file}"
+  }
+}
+
+# ================================================================================
 #  Configuring kubectl
 # ================================================================================
 
@@ -70,12 +115,11 @@ locals {
 # https://www.terraform.io/docs/provisioners/index.html
 # https://www.terraform.io/docs/provisioners/local-exec.html
 resource "null_resource" "kubectl_config" {
-  depends_on = [ module.cluster ]
-
   provisioner "local-exec" {
     command = <<-EOT
-      aws eks update-kubeconfig --region ${var.region} --name ${local.name}
-      sed -i '' "s/${local.cluster_arn}/${local.name}/g" ~/.kube/config
+      aws eks update-kubeconfig --region ${var.region} --name ${module.cluster.name}
+      sed -i '' "s/${local.cluster_arn}/${module.cluster.name}/g" ~/.kube/config
+      kubectl config use-context ${module.cluster.name}
     EOT
   }
 }
@@ -89,55 +133,9 @@ resource "null_resource" "kubectl_cleanup" {
   provisioner "local-exec" {
     when    = destroy
     command = <<-EOT
-      kubectl config unset clusters.${local.name}
-      kubectl config unset users.${local.name}
-      kubectl config unset contexts.${local.name}
+      kubectl config unset clusters.${module.cluster.name}
+      kubectl config unset users.${module.cluster.name}
+      kubectl config unset contexts.${module.cluster.name}
     EOT
-  }
-}
-
-# ================================================================================
-#  SSH Configurations
-# ================================================================================
-
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/providers/local/r/file.html
-resource "local_file" "ssh_config" {
-  depends_on = [
-    module.network,
-    module.cluster,
-  ]
-
-  filename = "${local.ssh_config_file}"
-  content = <<-EOT
-  Host bastion
-    HostName ${module.network.bastion.public_ip}
-    User admin
-    IdentityFile ${local.bastion_key_name}.pem
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-    LogLevel error
-  %{ for ip in module.cluster.node_group_instances.primary.private_ips }
-  Host ${ip}
-    HostName ${ip}
-    User ec2-user
-    IdentityFile ${local.node_key_name}.pem
-    ProxyJump bastion
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-    LogLevel error
-  %{ endfor }
-  EOT
-}
-
-# Remove ssh config file
-# https://www.terraform.io/docs/configuration/expressions.html#string-literals
-# https://www.terraform.io/docs/provisioners/null_resource.html
-# https://www.terraform.io/docs/provisioners/index.html#destroy-time-provisioners
-# https://www.terraform.io/docs/provisioners/local-exec.html
-resource "null_resource" "ssh_cleanup" {
-  provisioner "local-exec" {
-    when    = destroy
-    command = "rm -f ${local.ssh_config_file}"
   }
 }

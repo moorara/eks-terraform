@@ -43,6 +43,13 @@ resource "aws_iam_role" "bastion" {
   tags = merge(var.common_tags, {
     Name = format("%s-bastion", var.name)
   })
+
+  lifecycle {
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
+  }
 }
 
 # https://www.terraform.io/docs/providers/aws/r/iam_role_policy.html
@@ -122,6 +129,10 @@ resource "aws_security_group" "bastion" {
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
   lifecycle {
     create_before_destroy = true
+    # https://www.terraform.io/docs/configuration/resources.html#ignore_changes
+    ignore_changes = [
+      tags["UUID"],
+    ]
   }
 }
 
@@ -159,7 +170,7 @@ resource "aws_launch_configuration" "bastion" {
 
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
   lifecycle {
-    create_before_destroy = true
+    create_before_destroy = false  # the name of launch configuration is unique
   }
 }
 
@@ -188,13 +199,9 @@ resource "aws_autoscaling_group" "bastion" {
 
   # https://www.terraform.io/docs/configuration/resources.html#lifecycle-lifecycle-customizations
   lifecycle {
-    create_before_destroy = true
+    create_before_destroy = false  # the name of autoscaling group is unique
   }
 }
-
-# ================================================================================
-#  Bastion Instance
-# ================================================================================
 
 # https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html
 # https://www.terraform.io/docs/providers/aws/d/instance.html
