@@ -51,8 +51,8 @@ module "cluster" {
   subnet_ids                = [ for subnet in module.network.private_subnets: subnet.id ]
   ssh_public_key            = "${local.node_key_name}.pub"
   bastion_security_group_id = module.network.bastion.security_group_id
-  enable_node_groups        = false
-  enable_nodes              = true
+  enable_node_groups        = true
+  enable_nodes              = false
   common_tags               = local.common_tags
   region_tag                = local.region_tag
 }
