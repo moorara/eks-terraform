@@ -16,7 +16,7 @@ terraform {
 # https://www.terraform.io/docs/configuration/terraform.html
 provider "aws" {
   # Equivalent to ">= 2.44.0, < 3.0.0"
-  version = "~> 2.44"
+  version = "~> 3.0"
 
   access_key = var.access_key
   secret_key = var.secret_key
