@@ -3,7 +3,7 @@
 # https://www.terraform.io/docs/backends/types/s3.html
 terraform {
   # Equivalent to ">= 0.12, < 1.0"
-  required_version = "~> 0.12"
+  required_version = "~> 0.15"
   backend "s3" {}
 }
 
