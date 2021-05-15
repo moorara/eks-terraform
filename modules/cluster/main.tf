@@ -19,7 +19,7 @@ data "aws_eks_cluster_auth" "cluster" {
 # https://www.terraform.io/docs/configuration/terraform.html
 provider "kubernetes" {
   # Equivalent to ">= 1.10.0, < 2.0.0"
-  version = "~> 1.10"
+  version = "~> 2.0"
 
   load_config_file       = false
   host                   = data.aws_eks_cluster.cluster.endpoint
